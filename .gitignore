@@ -37,3 +37,5 @@ sha.py
 *secrets*
 
 *.xlsx
+
+.idea
