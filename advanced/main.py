@@ -12,8 +12,9 @@ M. Holliday
 print('\n{lines}\n{:^40}\n{lines}\n'.format('Beep-Sat Demo',lines='-'*40))
 
 print('Initializing PyCubed Hardware...')
-import os, tasko, traceback
-from pycubed import cubesat
+import lib.tasko as tasko
+import os, traceback
+from lib.pycubed import cubesat
 
 # create asyncio object
 cubesat.tasko=tasko
