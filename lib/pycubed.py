@@ -101,15 +101,15 @@ class Satellite:
         self.logfile="/log.txt"
 
         # Define radio
-        # _rf_cs1 = digitalio.DigitalInOut(board.RF1_CS)
-        # _rf_rst1 = digitalio.DigitalInOut(board.RF1_RST)
-        # self.enable_rf = digitalio.DigitalInOut(board.EN_RF)
-        # self.radio1_DIO0=digitalio.DigitalInOut(board.RF1_IO0)
-        # # self.enable_rf.switch_to_output(value=False) # if U21
-        # self.enable_rf.switch_to_output(value=True) # if U7
-        # _rf_cs1.switch_to_output(value=True)
-        # _rf_rst1.switch_to_output(value=True)
-        # self.radio1_DIO0.switch_to_input()
+        _rf_cs1 = digitalio.DigitalInOut(board.D5)
+        _rf_rst1 = digitalio.DigitalInOut(board.D6)
+        self.enable_rf = digitalio.DigitalInOut(board.D9)
+        self.radio1_DIO0=digitalio.DigitalInOut(board.D4)
+        # self.enable_rf.switch_to_output(value=False) # if U21
+        self.enable_rf.switch_to_output(value=True) # if U7
+        _rf_cs1.switch_to_output(value=True)
+        _rf_rst1.switch_to_output(value=True)
+        self.radio1_DIO0.switch_to_input()
 
         # Initialize SD card (always init SD before anything else on spi bus)
         # try:
@@ -168,18 +168,19 @@ class Satellite:
         #     if self.debug: print('[ERROR][GPS]',e)
 
         # Initialize radio #1 - UHF
-        # try:
-        #     self.radio1 = pycubed_rfm9x.RFM9x(self.spi, _rf_cs1, _rf_rst1,
-        #         433.0,code_rate=8,baudrate=1320000)
-        #     # Default LoRa Modulation Settings
-        #     # Frequency: 433 MHz, SF7, BW125kHz, CR4/8, Preamble=8, CRC=True
-        #     self.radio1.dio0=self.radio1_DIO0
-        #     self.radio1.enable_crc=True
-        #     self.radio1.ack_delay=0.2
-        #     self.radio1.sleep()
-        #     self.hardware['Radio1'] = True
-        # except Exception as e:
-        #     if self.debug: print('[ERROR][RADIO 1]',e)
+        try:
+            self.radio1 = pycubed_rfm9x.RFM9x(self.spi, _rf_cs1, _rf_rst1,
+                433.0, code_rate=8, baudrate=1320000)
+            # Default LoRa Modulation Settings
+            # Frequency: 433 MHz, SF7, BW125kHz, CR4/8, Preamble=8, CRC=True
+            self.radio1.dio0=self.radio1_DIO0
+            self.radio1.enable_crc=True
+            self.radio1.ack_delay=0.2
+            self.radio1.sleep()
+            self.hardware['Radio1'] = True
+            print("RADIO ON")
+        except Exception as e:
+            if self.debug: print('[ERROR][RADIO 1]', e)
 
         # set PyCubed power mode
         self.power_mode = 'normal'
