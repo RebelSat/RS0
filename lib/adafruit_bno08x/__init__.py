@@ -25,9 +25,7 @@ Implementation Notes
 
 * `Adafruit's Bus Device library <https:# github.com/adafruit/Adafruit_CircuitPython_BusDevice>`_
 """
-from __future__ import annotations
-
-__version__ = "1.2.3"
+__version__ = "0.0.0+auto.0"
 __repo__ = "https:# github.com/adafruit/Adafruit_CircuitPython_BNO08x.git"
 
 from struct import unpack_from, pack_into
@@ -37,13 +35,6 @@ from micropython import const
 
 # TODO: Remove on release
 from .debug import channels, reports
-
-# For IDE type recognition
-try:
-    from typing import Any, Dict, List, Optional, Tuple, Union
-    from digitalio import DigitalInOut
-except ImportError:
-    pass
 
 # TODO: shorten names
 # Channel 0: the SHTP command channel
@@ -90,9 +81,6 @@ BNO_REPORT_MAGNETOMETER = const(0x03)
 BNO_REPORT_LINEAR_ACCELERATION = const(0x04)
 # Rotation Vector
 BNO_REPORT_ROTATION_VECTOR = const(0x05)
-# Gravity Vector (m/s2). Vector direction of gravity
-BNO_REPORT_GRAVITY = const(0x06)
-# Game Rotation Vector
 BNO_REPORT_GAME_ROTATION_VECTOR = const(0x08)
 
 BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR = const(0x09)
@@ -151,7 +139,6 @@ _RAW_REPORTS = {
 }
 _AVAIL_SENSOR_REPORTS = {
     BNO_REPORT_ACCELEROMETER: (_Q_POINT_8_SCALAR, 3, 10),
-    BNO_REPORT_GRAVITY: (_Q_POINT_8_SCALAR, 3, 10),
     BNO_REPORT_GYROSCOPE: (_Q_POINT_9_SCALAR, 3, 10),
     BNO_REPORT_MAGNETOMETER: (_Q_POINT_4_SCALAR, 3, 10),
     BNO_REPORT_LINEAR_ACCELERATION: (_Q_POINT_8_SCALAR, 3, 10),
@@ -215,12 +202,12 @@ class PacketError(Exception):
     pass  # pylint:disable=unnecessary-pass
 
 
-def _elapsed(start_time: float) -> float:
+def _elapsed(start_time):
     return time.monotonic() - start_time
 
 
 ############ PACKET PARSING ###########################
-def _parse_sensor_report_data(report_bytes: bytearray) -> Tuple[Tuple, int]:
+def _parse_sensor_report_data(report_bytes):
     """Parses reports with only 16-bit fields"""
     data_offset = 4  # this may not always be true
     report_id = report_bytes[0]
@@ -244,11 +231,11 @@ def _parse_sensor_report_data(report_bytes: bytearray) -> Tuple[Tuple, int]:
     return (results_tuple, accuracy)
 
 
-def _parse_step_couter_report(report_bytes: bytearray) -> int:
+def _parse_step_couter_report(report_bytes):
     return unpack_from("<H", report_bytes, offset=8)[0]
 
 
-def _parse_stability_classifier_report(report_bytes: bytearray) -> str:
+def _parse_stability_classifier_report(report_bytes):
     classification_bitfield = unpack_from("<B", report_bytes, offset=4)[0]
     return ["Unknown", "On Table", "Stationary", "Stable", "In motion"][
         classification_bitfield
@@ -262,7 +249,7 @@ def _parse_stability_classifier_report(report_bytes: bytearray) -> str:
 # report_interval
 # batch_interval_word
 # sensor_specific_configuration_word
-def _parse_get_feature_response_report(report_bytes: bytearray) -> Tuple[Any, ...]:
+def _parse_get_feature_response_report(report_bytes):
     return unpack_from("<BBBHIII", report_bytes)
 
 
@@ -273,7 +260,7 @@ def _parse_get_feature_response_report(report_bytes: bytearray) -> Tuple[Any, ..
 # 4 Page Number + EOS
 # 5 Most likely state
 # 6-15 Classification (10 x Page Number) + confidence
-def _parse_activity_classifier_report(report_bytes: bytearray) -> Dict[str, str]:
+def _parse_activity_classifier_report(report_bytes):
     activities = [
         "Unknown",
         "In-Vehicle",  # look
@@ -301,12 +288,12 @@ def _parse_activity_classifier_report(report_bytes: bytearray) -> Dict[str, str]
     return classification
 
 
-def _parse_shake_report(report_bytes: bytearray) -> bool:
+def _parse_shake_report(report_bytes):
     shake_bitfield = unpack_from("<H", report_bytes, offset=4)[0]
     return (shake_bitfield & 0x111) > 0
 
 
-def parse_sensor_id(buffer: bytearray) -> Tuple[int, ...]:
+def parse_sensor_id(buffer):
     """Parse the fields of a product id report"""
     if not buffer[0] == _SHTP_REPORT_PRODUCT_ID_RESPONSE:
         raise AttributeError("Wrong report id for sensor id: %s" % hex(buffer[0]))
@@ -320,7 +307,8 @@ def parse_sensor_id(buffer: bytearray) -> Tuple[int, ...]:
     return (sw_part_number, sw_major, sw_minor, sw_patch, sw_build_number)
 
 
-def _parse_command_response(report_bytes: bytearray) -> Tuple[Any, Any]:
+def _parse_command_response(report_bytes):
+
     # CMD response report:
     # 0 Report ID = 0xF1
     # 1 Sequence number
@@ -335,11 +323,8 @@ def _parse_command_response(report_bytes: bytearray) -> Tuple[Any, Any]:
 
 
 def _insert_command_request_report(
-    command: int,
-    buffer: bytearray,
-    next_sequence_number: int,
-    command_params: Optional[List[int]] = None,
-) -> None:
+    command, buffer, next_sequence_number, command_params=None
+):
     if command_params and len(command_params) > 9:
         raise AttributeError(
             "Command request reports can only have up to 9 arguments but %d were given"
@@ -357,14 +342,14 @@ def _insert_command_request_report(
         buffer[3 + idx] = param
 
 
-def _report_length(report_id: int) -> int:
+def _report_length(report_id):
     if report_id < 0xF0:  # it's a sensor report
         return _AVAIL_SENSOR_REPORTS[report_id][2]
 
     return _REPORT_LENGTHS[report_id]
 
 
-def _separate_batch(packet: Packet, report_slices: List[Any]) -> None:
+def _separate_batch(packet, report_slices):
     # get first report id, loop up its report length
     # read that many bytes, parse them
     next_byte_index = 0
@@ -385,15 +370,25 @@ def _separate_batch(packet: Packet, report_slices: List[Any]) -> None:
         next_byte_index = next_byte_index + required_bytes
 
 
+# class Report:
+#     _buffer = bytearray(DATA_BUFFER_SIZE)
+#     _report_obj = Report(_buffer)
+
+#     @classmethod
+#     def get_report(cls)
+#         return cls._report_obj
+
+
 class Packet:
     """A class representing a Hillcrest LaboratorySensor Hub Transport packet"""
 
-    def __init__(self, packet_bytes: bytearray) -> None:
+    def __init__(self, packet_bytes):
         self.header = self.header_from_buffer(packet_bytes)
         data_end_index = self.header.data_length + _BNO_HEADER_LEN
         self.data = packet_bytes[_BNO_HEADER_LEN:data_end_index]
 
-    def __str__(self) -> str:
+    def __str__(self):
+
         length = self.header.packet_byte_count
         outstr = "\n\t\t********** Packet *************\n"
         outstr += "DBG::\t\t HEADER:\n"
@@ -451,17 +446,17 @@ class Packet:
         return outstr
 
     @property
-    def report_id(self) -> int:
+    def report_id(self):
         """The Packet's Report ID"""
         return self.data[0]
 
     @property
-    def channel_number(self) -> int:
+    def channel_number(self):
         """The packet channel"""
         return self.header.channel_number
 
     @classmethod
-    def header_from_buffer(cls, packet_bytes: bytearray) -> PacketHeader:
+    def header_from_buffer(cls, packet_bytes):
         """Creates a `PacketHeader` object from a given buffer"""
         packet_byte_count = unpack_from("<H", packet_bytes)[0]
         packet_byte_count &= ~0x8000
@@ -475,7 +470,7 @@ class Packet:
         return header
 
     @classmethod
-    def is_error(cls, header: PacketHeader) -> bool:
+    def is_error(cls, header):
         """Returns True if the header is an error condition"""
 
         if header.channel_number > 5:
@@ -492,31 +487,32 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
 
     """
 
-    def __init__(
-        self, reset: Optional[DigitalInOut] = None, debug: bool = False
-    ) -> None:
-        self._debug: bool = debug
-        self._reset: Optional[DigitalInOut] = reset
+    def __init__(self, reset=None, debug=False):
+        self._debug = debug
+        self._reset = reset
         self._dbg("********** __init__ *************")
-        self._data_buffer: bytearray = bytearray(DATA_BUFFER_SIZE)
-        self._command_buffer: bytearray = bytearray(12)
-        self._packet_slices: List[Any] = []
+        self._data_buffer = bytearray(DATA_BUFFER_SIZE)
+        self._command_buffer = bytearray(12)
+        self._packet_slices = []
 
         # TODO: this is wrong there should be one per channel per direction
-        self._sequence_number: List[int] = [0, 0, 0, 0, 0, 0]
-        self._two_ended_sequence_numbers: Dict[int, int] = {}
-        self._dcd_saved_at: float = -1
-        self._me_calibration_started_at: float = -1.0
+        self._sequence_number = [0, 0, 0, 0, 0, 0]
+        self._two_ended_sequence_numbers = {
+            "send": {},  # holds the next seq number to send with the report id as a key
+            "receive": {},
+        }
+        self._dcd_saved_at = -1
+        self._me_calibration_started_at = -1
         self._calibration_complete = False
         self._magnetometer_accuracy = 0
         self._wait_for_initialize = True
         self._init_complete = False
         self._id_read = False
         # for saving the most recent reading when decoding several packets
-        self._readings: Dict[int, Any] = {}
+        self._readings = {}
         self.initialize()
 
-    def initialize(self) -> None:
+    def initialize(self):
         """Initialize the sensor"""
         for _ in range(3):
             self.hard_reset()
@@ -530,7 +526,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("Could not read ID")
 
     @property
-    def magnetic(self) -> Optional[Tuple[float, float, float]]:
+    def magnetic(self):
         """A tuple of the current magnetic field measurements on the X, Y, and Z axes"""
         self._process_available_packets()  # decorator?
         try:
@@ -539,7 +535,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No magfield report found, is it enabled?") from None
 
     @property
-    def quaternion(self) -> Optional[Tuple[float, float, float, float]]:
+    def quaternion(self):
         """A quaternion representing the current rotation vector"""
         self._process_available_packets()
         try:
@@ -548,7 +544,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No quaternion report found, is it enabled?") from None
 
     @property
-    def geomagnetic_quaternion(self) -> Optional[Tuple[float, float, float, float]]:
+    def geomagnetic_quaternion(self):
         """A quaternion representing the current geomagnetic rotation vector"""
         self._process_available_packets()
         try:
@@ -559,7 +555,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             ) from None
 
     @property
-    def game_quaternion(self) -> Optional[Tuple[float, float, float, float]]:
+    def game_quaternion(self):
         """A quaternion representing the current rotation vector expressed as a quaternion with no
         specific reference for heading, while roll and pitch are referenced against gravity. To
         prevent sudden jumps in heading due to corrections, the `game_quaternion` property is not
@@ -573,7 +569,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             ) from None
 
     @property
-    def steps(self) -> Optional[int]:
+    def steps(self):
         """The number of steps detected since the sensor was initialized"""
         self._process_available_packets()
         try:
@@ -582,7 +578,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No steps report found, is it enabled?") from None
 
     @property
-    def linear_acceleration(self) -> Optional[Tuple[float, float, float]]:
+    def linear_acceleration(self):
         """A tuple representing the current linear acceleration values on the X, Y, and Z
         axes in meters per second squared"""
         self._process_available_packets()
@@ -592,7 +588,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No lin. accel report found, is it enabled?") from None
 
     @property
-    def acceleration(self) -> Optional[Tuple[float, float, float]]:
+    def acceleration(self):
         """A tuple representing the acceleration measurements on the X, Y, and Z
         axes in meters per second squared"""
         self._process_available_packets()
@@ -602,17 +598,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No accel report found, is it enabled?") from None
 
     @property
-    def gravity(self) -> Optional[Tuple[float, float, float]]:
-        """A tuple representing the gravity vector in the X, Y, and Z components
-        axes in meters per second squared"""
-        self._process_available_packets()
-        try:
-            return self._readings[BNO_REPORT_GRAVITY]
-        except KeyError:
-            raise RuntimeError("No gravity report found, is it enabled?") from None
-
-    @property
-    def gyro(self) -> Optional[Tuple[float, float, float]]:
+    def gyro(self):
         """A tuple representing Gyro's rotation measurements on the X, Y, and Z
         axes in radians per second"""
         self._process_available_packets()
@@ -622,7 +608,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No gyro report found, is it enabled?") from None
 
     @property
-    def shake(self) -> Optional[bool]:
+    def shake(self):
         """True if a shake was detected on any axis since the last time it was checked
 
         This property has a "latching" behavior where once a shake is detected, it will stay in a
@@ -640,7 +626,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No shake report found, is it enabled?") from None
 
     @property
-    def stability_classification(self) -> Optional[str]:
+    def stability_classification(self):
         """Returns the sensor's assessment of it's current stability, one of:
 
         * "Unknown" - The sensor is unable to classify the current stability
@@ -662,7 +648,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             ) from None
 
     @property
-    def activity_classification(self) -> Optional[dict]:
+    def activity_classification(self):
         """Returns the sensor's assessment of the activity that is creating the motions\
         that it is sensing, one of:
 
@@ -687,7 +673,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             ) from None
 
     @property
-    def raw_acceleration(self) -> Optional[Tuple[int, int, int]]:
+    def raw_acceleration(self):
         """Returns the sensor's raw, unscaled value from the accelerometer registers"""
         self._process_available_packets()
         try:
@@ -699,7 +685,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             ) from None
 
     @property
-    def raw_gyro(self) -> Optional[Tuple[int, int, int]]:
+    def raw_gyro(self):
         """Returns the sensor's raw, unscaled value from the gyro registers"""
         self._process_available_packets()
         try:
@@ -709,7 +695,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             raise RuntimeError("No raw gyro report found, is it enabled?") from None
 
     @property
-    def raw_magnetic(self) -> Optional[Tuple[int, int, int]]:
+    def raw_magnetic(self):
         """Returns the sensor's raw, unscaled value from the magnetometer registers"""
         self._process_available_packets()
         try:
@@ -718,7 +704,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         except KeyError:
             raise RuntimeError("No raw magnetic report found, is it enabled?") from None
 
-    def begin_calibration(self) -> None:
+    def begin_calibration(self):
         """Begin the sensor's self-calibration routine"""
         # start calibration for accel, gyro, and mag
         self._send_me_command(
@@ -737,7 +723,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         self._calibration_complete = False
 
     @property
-    def calibration_status(self) -> int:
+    def calibration_status(self):
         """Get the status of the self-calibration"""
         self._send_me_command(
             [
@@ -754,7 +740,8 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         )
         return self._magnetometer_accuracy
 
-    def _send_me_command(self, subcommand_params: Optional[List[int]]) -> None:
+    def _send_me_command(self, subcommand_params):
+
         start_time = time.monotonic()
         local_buffer = self._command_buffer
         _insert_command_request_report(
@@ -770,7 +757,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             if self._me_calibration_started_at > start_time:
                 break
 
-    def save_calibration_data(self) -> None:
+    def save_calibration_data(self):
         """Save the self-calibration data"""
         # send a DCD save command
         start_time = time.monotonic()
@@ -790,7 +777,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
 
     ############### private/helper methods ###############
     # # decorator?
-    def _process_available_packets(self, max_packets: Optional[int] = None) -> None:
+    def _process_available_packets(self, max_packets=None):
         processed_count = 0
         while self._data_ready:
             if max_packets and processed_count > max_packets:
@@ -808,9 +795,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         self._dbg("")
         self._dbg(" ** DONE! **")
 
-    def _wait_for_packet_type(
-        self, channel_number: int, report_id: Optional[int] = None, timeout: float = 5.0
-    ) -> Packet:
+    def _wait_for_packet_type(self, channel_number, report_id=None, timeout=5.0):
         if report_id:
             report_id_str = " with report id %s" % hex(report_id)
         else:
@@ -835,7 +820,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
 
         raise RuntimeError("Timed out waiting for a packet on channel", channel_number)
 
-    def _wait_for_packet(self, timeout: float = _PACKET_READ_TIMEOUT) -> Packet:
+    def _wait_for_packet(self, timeout=_PACKET_READ_TIMEOUT):
         start_time = time.monotonic()
         while _elapsed(start_time) < timeout:
             if not self._data_ready:
@@ -847,12 +832,12 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
     # update the cached sequence number so we know what to increment from
     # TODO: this is wrong there should be one per channel per direction
     # and apparently per report as well
-    def _update_sequence_number(self, new_packet: Packet) -> None:
+    def _update_sequence_number(self, new_packet):
         channel = new_packet.channel_number
         seq = new_packet.header.sequence_number
         self._sequence_number[channel] = seq
 
-    def _handle_packet(self, packet: Packet) -> None:
+    def _handle_packet(self, packet):
         # split out reports first
         try:
             _separate_batch(packet, self._packet_slices)
@@ -862,7 +847,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             print(packet)
             raise error
 
-    def _handle_control_report(self, report_id: int, report_bytes: bytearray) -> None:
+    def _handle_control_report(self, report_id, report_bytes):
         if report_id == _SHTP_REPORT_PRODUCT_ID_RESPONSE:
             (
                 sw_part_number,
@@ -886,7 +871,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         if report_id == _COMMAND_RESPONSE:
             self._handle_command_response(report_bytes)
 
-    def _handle_command_response(self, report_bytes: bytearray) -> None:
+    def _handle_command_response(self, report_bytes):
         (report_body, response_values) = _parse_command_response(report_bytes)
 
         (
@@ -909,7 +894,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
             else:
                 raise RuntimeError("Unable to save calibration data")
 
-    def _process_report(self, report_id: int, report_bytes: bytearray) -> None:
+    def _process_report(self, report_id, report_bytes):
         if report_id >= 0xF0:
             self._handle_control_report(report_id, report_bytes)
             return
@@ -958,10 +943,8 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
     # TODO: Make this a Packet creation
     @staticmethod
     def _get_feature_enable_report(
-        feature_id: int,
-        report_interval: int = _DEFAULT_REPORT_INTERVAL,
-        sensor_specific_config: int = 0,
-    ) -> bytearray:
+        feature_id, report_interval=_DEFAULT_REPORT_INTERVAL, sensor_specific_config=0
+    ):
         set_feature_report = bytearray(17)
         set_feature_report[0] = _SET_FEATURE_COMMAND
         set_feature_report[1] = feature_id
@@ -973,7 +956,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
     # TODO: add docs for available features
     # TODO2: I think this should call an fn that imports all the bits for the given feature
     # so we're not carrying around  stuff for extra features
-    def enable_feature(self, feature_id: int) -> None:
+    def enable_feature(self, feature_id):
         """Used to enable a given feature of the BNO08x"""
         self._dbg("\n********** Enabling feature id:", feature_id, "**********")
 
@@ -1001,7 +984,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
                 return
         raise RuntimeError("Was not able to enable feature", feature_id)
 
-    def _check_id(self) -> bool:
+    def _check_id(self):
         self._dbg("\n********** READ ID **********")
         if self._id_read:
             return True
@@ -1024,7 +1007,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
 
         return False
 
-    def _parse_sensor_id(self) -> Optional[int]:
+    def _parse_sensor_id(self):
         if not self._data_buffer[4] == _SHTP_REPORT_PRODUCT_ID_RESPONSE:
             return None
 
@@ -1042,21 +1025,21 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         # TODO: this is only one of the numbers!
         return sw_part_number
 
-    def _dbg(self, *args: Any, **kwargs: Any) -> None:
+    def _dbg(self, *args, **kwargs):
         if self._debug:
             print("DBG::\t\t", *args, **kwargs)
 
-    def _get_data(self, index: int, fmt_string: str) -> Any:
+    def _get_data(self, index, fmt_string):
         # index arg is not including header, so add 4 into data buffer
         data_index = index + 4
         return unpack_from(fmt_string, self._data_buffer, offset=data_index)[0]
 
     # pylint:disable=no-self-use
     @property
-    def _data_ready(self) -> None:
+    def _data_ready(self):
         raise RuntimeError("Not implemented")
 
-    def hard_reset(self) -> None:
+    def hard_reset(self):
         """Hardware reset the sensor to an initial unconfigured state"""
         if not self._reset:
             return
@@ -1070,7 +1053,7 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         self._reset.value = True
         time.sleep(0.01)
 
-    def soft_reset(self) -> None:
+    def soft_reset(self):
         """Reset the sensor to an initial unconfigured state"""
         self._dbg("Soft resetting...", end="")
         data = bytearray(1)
@@ -1089,15 +1072,15 @@ class BNO08X:  # pylint: disable=too-many-instance-attributes, too-many-public-m
         self._dbg("OK!")
         # all is good!
 
-    def _send_packet(self, channel: int, data: bytearray) -> Optional[int]:
+    def _send_packet(self, channel, data):
         raise RuntimeError("Not implemented")
 
-    def _read_packet(self) -> Optional[Packet]:
+    def _read_packet(self):
         raise RuntimeError("Not implemented")
 
-    def _increment_report_seq(self, report_id: int) -> None:
+    def _increment_report_seq(self, report_id):
         current = self._two_ended_sequence_numbers.get(report_id, 0)
         self._two_ended_sequence_numbers[report_id] = (current + 1) % 256
 
-    def _get_report_seq_id(self, report_id: int) -> int:
+    def _get_report_seq_id(self, report_id):
         return self._two_ended_sequence_numbers.get(report_id, 0)

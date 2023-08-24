@@ -27,7 +27,7 @@ Implementation Notes
 """
 
 from micropython import const
-from adafruit_bus_device.i2c_device import I2CDevice
+from adafruit_bus_device import i2c_device
 
 from adafruit_register.i2c_struct import ROUnaryStruct, UnaryStruct
 from adafruit_register.i2c_bits import ROBits, RWBits
@@ -39,7 +39,7 @@ try:
 except ImportError:
     pass
 
-__version__ = "3.4.22"
+__version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_INA219.git"
 
 # Bits
@@ -152,7 +152,7 @@ class INA219:
     # calibration                 RW : calibration register (note: value is cached)
 
     def __init__(self, i2c_bus: I2C, addr: int = 0x40) -> None:
-        self.i2c_device = I2CDevice(i2c_bus, addr)
+        self.i2c_device = i2c_device.I2CDevice(i2c_bus, addr)
         self.i2c_addr = addr
 
         # Set chip to known config values to start
@@ -512,7 +512,7 @@ class INA219:
         # Cal = trunc (0.04096 / (Current_LSB * RSHUNT))
         # Cal = 13434 (0x347a)
 
-        self._cal_value = 13434
+        self._cal_value = 134
 
         # 6. Calculate the power LSB
         # PowerLSB = 20 * CurrentLSB
